@@ -84,6 +84,60 @@
   transform: translateY(0);
 }
 
+/* --- Chat Page Additions for GeminiBot UI --- */
+.central-chat-container {
+}
+.chat-header {
+}
+.header-actions {
+}
+.profile-btn, .logout-btn {
+}
+.chat-area {
+}
+.chat-message {
+}
+.user-message {
+}
+.bot-message {
+}
+.system-message {
+}
+.msg-metadata {
+}
+.msg-user {}
+.msg-time {}
+.msg-content {}
+.msg-sources {}
+.chat-input-row {
+}
+.chat-input {
+}
+.send-btn {}
+.profile-panel {
+}
+.profile-panel.open {}
+.profile-header {}
+.close-profile {}
+.chat-footer {}
+.empty-chat-msg {}
+.auth-modal {}
+.login-form {}
+.login-form h3 {}
+.login-form input[type="text"],
+.login-form input[type="password"] {}
+.auth-error {}
+.loader {}
+@keyframes loader-spin {
+  0% { transform: rotate(0deg);}
+  100% { transform: rotate(360deg);}
+}
+@media (max-width: 600px) {
+  .central-chat-container {}
+  .chat-header, .chat-footer {}
+  .profile-panel {}
+}
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);
