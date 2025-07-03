@@ -1,95 +1,161 @@
 import React, { useEffect, useState, useRef } from "react";
 import "./App.css";
 
-// API base URL (adjust as needed, e.g. relative or absolute to backend_fastapi)
-const API_BASE = process.env.REACT_APP_API_BACKEND || "http://localhost:3001";
+/*
+  TestAssist GeminiBot Chat App (Frontend)
+  - Provides chat interface for test engineers to interact with Gemini-powered backend
+  - Supports display of current chat, history, and authentication if enabled
+  - Interfaces with FastAPI backend via REST endpoints as documented
+*/
 
-// Toggle this to true if authentication endpoints are enabled on the backend
-const AUTH_ENABLED = false;
+/** ==== CONFIG SECTION ==== **/
 
-// Project color palette (for inline usage if needed)
+// Backend API endpoint (default localhost:3001; can override with ?backend=... param)
+const API_BASE =
+  (() => {
+    // Allow ?backend=... override for dev/test
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("backend")) return params.get("backend");
+    }
+    return process.env.REACT_APP_API_BACKEND || "http://localhost:3001";
+  })();
+
+// Whether authentication endpoints are enabled (auto-detect or hardcode as needed)
+const AUTH_ENABLED = false; // Set true if backend /auth/signup/token/profile routes require JWT
+
+// Color palette for themed components
 const COLORS = {
   accent: "#43A047",
   primary: "#1976D2",
   secondary: "#424242",
 };
 
-// Utility: Format date/time for chat bubbles
+// Intl date util: format timestamp for bubble display
 function formatTime(ts) {
   if (!ts) return "";
   const d = new Date(ts);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+/** ==== APP MAIN ==== **/
 // PUBLIC_INTERFACE
-function App() {
-  // Theme: light/dark (default to project "light" theme)
-  const [theme, setTheme] = useState("light");
-  // Authentication state
+export default function App() {
+  // Theme: light/dark (default to "light")
+  const [theme, setTheme] = useState(() => {
+    return window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  });
+
+  // User authentication state
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken") || "");
   const [authUser, setAuthUser] = useState(localStorage.getItem("authUser") || "");
   const [authError, setAuthError] = useState("");
   const [showLogin, setShowLogin] = useState(false);
 
   // Chat state
-  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [conversationId, setConversationId] = useState(null);
+
+  // History state
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Profile panel (optional for future)
+  // Profile panel
   const [panelOpen, setPanelOpen] = useState(false);
 
-  // Chat scroll ref
+  // Loader: true if fetch in progress
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  // Chat scroll
   const chatEndRef = useRef(null);
 
-  // Scroll to bottom on message add
-  useEffect(() => {
-    if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  // ==== Effects and Initialization ====
 
-  // Set theme on document
+  // Apply theme on document
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  // Fetch chat history on mount or login
+  // Fetch conversation history on mount/auth change
   useEffect(() => {
-    if ((AUTH_ENABLED && authToken) || !AUTH_ENABLED) {
+    // Only fetch if authToken exists or if not required
+    if (!AUTH_ENABLED || authToken) {
       fetchChatHistory();
+    } else {
+      setShowLogin(true);
+      setMessages([]);
+      setHistory([]);
     }
     // eslint-disable-next-line
   }, [authToken]);
 
-  // PUBLIC_INTERFACE
-  const toggleTheme = () => setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  // Auto-scroll to end on new messages
+  useEffect(() => {
+    if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  // Fetch chat history from backend
+  // ==== API Calls ====
+
   // PUBLIC_INTERFACE
   async function fetchChatHistory() {
-    setLoading(true);
+    setHistoryLoaded(false);
     try {
-      let res = await fetch(`${API_BASE}/chat/history`, {
+      const res = await fetch(`${API_BASE}/chat/history`, {
         headers: {
-          "Authorization": authToken ? `Bearer ${authToken}` : undefined,
+          ...(AUTH_ENABLED && authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
       });
-      if (!res.ok) throw new Error("Failed to load history");
-      const history = await res.json();
-      setMessages(history.messages || []);
-    } catch (e) {
+      if (!res.ok) throw new Error("Error loading chat history");
+      const data = await res.json();
+      setHistory(
+        Array.isArray(data)
+          ? data
+          : []
+      );
+      // Set current conversation to most recent or null
+      if (Array.isArray(data) && data.length > 0) {
+        // Set messages to latest conversation
+        setConversationId(data[0].id);
+        setMessages(
+          (data[0].messages || []).map((m) => ({
+            id: m.id,
+            user: m.sender === "user" ? authUser || "You" : "GeminiBot",
+            content: m.content,
+            timestamp: m.created_at,
+            role: m.sender === "user" ? "user" : (m.sender === "bot" ? "bot" : "system"),
+            sources:
+              m.gemini_response &&
+              m.gemini_response.sources
+                ? m.gemini_response.sources
+                : [],
+          }))
+        );
+      } else {
+        setConversationId(null);
+        setMessages([]);
+      }
+    } catch (err) {
+      setHistory([]);
+      setConversationId(null);
       setMessages([]);
     } finally {
-      setLoading(false);
+      setHistoryLoaded(true);
     }
   }
 
-  // Send a new message (user query)
   // PUBLIC_INTERFACE
   async function handleSend(e) {
     e.preventDefault();
     const text = input.trim();
     if (!text) return;
-    // Optimistically add user's message to UI
+    setInput("");
+    setLoading(true);
+
+    // Optimistically add user message to UI
     const userMsg = {
       id: Date.now(),
       user: authUser || "You",
@@ -98,37 +164,60 @@ function App() {
       role: "user",
     };
     setMessages((msgs) => [...msgs, userMsg]);
-    setInput("");
-    setLoading(true); // Show loading indicator for Gemini/AI
+
     try {
-      let res = await fetch(`${API_BASE}/chat/ask`, {
+      let reqBody = {
+        content: text,
+      };
+      if (conversationId) reqBody.conversation_id = conversationId;
+
+      const res = await fetch(`${API_BASE}/chat/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": authToken ? `Bearer ${authToken}` : undefined,
+          ...(AUTH_ENABLED && authToken
+            ? { Authorization: `Bearer ${authToken}` }
+            : {}),
         },
-        body: JSON.stringify({ query: text }),
+        body: JSON.stringify(reqBody),
       });
-      if (!res.ok) throw new Error("Failed to get response");
-      const data = await res.json();
-      // Expect: { reply: "...", sources: [...] } or just { reply: "..." }
-      const botMsg = {
-        id: Date.now() + 1,
-        user: "GeminiBot",
-        content: data.reply || "No answer found.",
-        sources: data.sources || [],
-        timestamp: new Date().toISOString(),
-        role: "bot",
-      };
-      setMessages((msgs) => [...msgs, botMsg]);
-    } catch (e) {
-      // Show error from Gemini/Backend
+      if (!res.ok) {
+        let detail = "Failed to get response. Try again.";
+        try {
+          const err = await res.json();
+          if (err && err.detail) detail = err.detail;
+        } catch { }
+        throw new Error(detail);
+      }
+      // Response: MessageOut (see backend)
+      const botMsg = await res.json();
+      // If conversationId was just created, update it now from response
+      if (!conversationId && botMsg && botMsg.id && res.headers.get("content-type")?.includes("application/json")) {
+        fetchChatHistory(); // Reload to pull in new conversation and full details
+      }
+      setMessages((msgs) =>
+        [
+          ...msgs,
+          {
+            id: botMsg.id,
+            user: "GeminiBot",
+            content: botMsg.content,
+            sources: botMsg.gemini_response && botMsg.gemini_response.sources
+              ? botMsg.gemini_response.sources
+              : [],
+            timestamp: botMsg.created_at,
+            role: "bot",
+          },
+        ]);
+    } catch (err) {
       setMessages((msgs) => [
         ...msgs,
         {
-          id: Date.now() + 2,
+          id: `sys-${Date.now()}`,
           user: "System",
-          content: "Sorry, an error occurred. Please try again.",
+          content:
+            err.message ||
+            "Sorry, an error occurred. Please try again later.",
           role: "system",
           timestamp: new Date().toISOString(),
         },
@@ -139,33 +228,66 @@ function App() {
   }
 
   // PUBLIC_INTERFACE
-  function handleInput(e) {
-    setInput(e.target.value);
-  }
-
-  // PUBLIC_INTERFACE
   async function handleLogin(e) {
     e.preventDefault();
     setAuthError("");
     const form = e.target;
-    const username = form.username.value;
+    const username = form.username.value.trim();
     const password = form.password.value;
+    if (!username || !password) {
+      setAuthError("Provide username and password");
+      return;
+    }
     try {
-      let res = await fetch(`${API_BASE}/auth/login`, {
+      const res = await fetch(`${API_BASE}/auth/token`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&grant_type=password`,
       });
       if (res.ok) {
         const data = await res.json();
-        setAuthToken(data.token);
+        setAuthToken(data.access_token);
         setAuthUser(username);
-        localStorage.setItem("authToken", data.token);
+        localStorage.setItem("authToken", data.access_token);
         localStorage.setItem("authUser", username);
         setShowLogin(false);
         fetchChatHistory();
       } else {
         setAuthError("Login failed. Check credentials.");
+      }
+    } catch (err) {
+      setAuthError("Server error.");
+    }
+  }
+
+  // PUBLIC_INTERFACE
+  async function handleSignup(e) {
+    e.preventDefault();
+    setAuthError("");
+    const form = e.target;
+    const username = form.username.value.trim();
+    const password = form.password.value;
+    if (!username || !password) {
+      setAuthError("Provide username and password");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      if (res.ok) {
+        // Signup auto-login
+        const data = await res.json();
+        setAuthToken(data.access_token);
+        setAuthUser(username);
+        localStorage.setItem("authToken", data.access_token);
+        localStorage.setItem("authUser", username);
+        setShowLogin(false);
+        fetchChatHistory();
+      } else {
+        setAuthError("Signup failed. Username may be taken.");
       }
     } catch (err) {
       setAuthError("Server error.");
@@ -180,6 +302,8 @@ function App() {
     localStorage.removeItem("authUser");
     setShowLogin(true);
     setMessages([]);
+    setHistory([]);
+    setConversationId(null);
   }
 
   // PUBLIC_INTERFACE
@@ -222,7 +346,7 @@ function App() {
           )}
           <button
             className="theme-toggle"
-            onClick={toggleTheme}
+            onClick={() => setTheme((p) => (p === "light" ? "dark" : "light"))}
             aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
             style={{
               marginLeft: "0.5em",
@@ -239,7 +363,6 @@ function App() {
 
   // PUBLIC_INTERFACE
   function renderMessage(msg, idx) {
-    // Differentiate style by role: user, bot, system
     const isUser = msg.role === "user";
     const isBot = msg.role === "bot";
     const isSystem = msg.role === "system";
@@ -247,11 +370,7 @@ function App() {
       <div
         className={
           "chat-message " +
-          (isUser
-            ? "user-message"
-            : isBot
-            ? "bot-message"
-            : "system-message")
+          (isUser ? "user-message" : isBot ? "bot-message" : "system-message")
         }
         key={msg.id || idx}
       >
@@ -281,7 +400,7 @@ function App() {
           className="chat-input"
           type="text"
           value={input}
-          onChange={handleInput}
+          onChange={(e) => setInput(e.target.value)}
           disabled={loading}
           placeholder={
             loading
@@ -311,10 +430,16 @@ function App() {
 
   // PUBLIC_INTERFACE
   function renderLoginForm() {
+    // Dual: login/signup toggle if desired
+    const [signup, setSignup] = useState(false);
     return (
       <div className="auth-modal">
-        <form className="login-form" onSubmit={handleLogin} autoComplete="off">
-          <h3>Login</h3>
+        <form
+          className="login-form"
+          onSubmit={signup ? handleSignup : handleLogin}
+          autoComplete="off"
+        >
+          <h3>{signup ? "Sign up" : "Login"}</h3>
           <label>
             Username:
             <input name="username" type="text" required autoFocus />
@@ -323,8 +448,26 @@ function App() {
             Password:
             <input name="password" type="password" required />
           </label>
-          <button type="submit" style={{ background: COLORS.primary, color: "#fff" }}>
-            Login
+          <button
+            type="submit"
+            style={{ background: COLORS.primary, color: "#fff" }}
+          >
+            {signup ? "Sign up" : "Login"}
+          </button>
+          <button
+            type="button"
+            style={{
+              background: "transparent",
+              color: COLORS.secondary,
+              border: "none",
+              marginTop: "0.7em",
+              cursor: "pointer",
+            }}
+            onClick={() => setSignup((p) => !p)}
+          >
+            {signup
+              ? "Already have an account? Login"
+              : "Need an account? Sign up"}
           </button>
           {authError && <div className="auth-error">{authError}</div>}
         </form>
@@ -332,13 +475,66 @@ function App() {
     );
   }
 
-  // RENDER
+  // PUBLIC_INTERFACE
+  function renderHistorySelector() {
+    // Show conversation history list (if multiple)
+    if (!history.length) return null;
+    return (
+      <div style={{ textAlign: "center", marginBottom: "0.8em" }}>
+        <span style={{ fontWeight: 600 }}>Past conversations:</span>
+        {history.map((conv, idx) => (
+          <button
+            key={conv.id}
+            style={{
+              margin: "0 0.35em",
+              background:
+                conv.id === conversationId
+                  ? COLORS.accent
+                  : COLORS.primary,
+              color: "#fff",
+              border: "none",
+              borderRadius: "5px",
+              padding: "0.37em 0.9em",
+              cursor: "pointer",
+              fontSize: "0.99em"
+            }}
+            onClick={() => {
+              setConversationId(conv.id);
+              setMessages(
+                (conv.messages || []).map((m) => ({
+                  id: m.id,
+                  user: m.sender === "user" ? authUser || "You" : "GeminiBot",
+                  content: m.content,
+                  timestamp: m.created_at,
+                  role: m.sender === "user" ? "user" : (m.sender === "bot" ? "bot" : "system"),
+                  sources:
+                    m.gemini_response && m.gemini_response.sources
+                      ? m.gemini_response.sources
+                      : [],
+                }))
+              );
+            }}
+          >
+            {conv.title
+              ? conv.title
+              : `Chat #${history.length - idx}`}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  // ===== RENDER =====
   return (
     <div className="App" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
       {renderChatHeader()}
       {AUTH_ENABLED && showLogin ? renderLoginForm() : null}
       {AUTH_ENABLED && panelOpen ? renderProfilePanel() : null}
+
       <main className="central-chat-container">
+        {/* Conversation selector */}
+        {renderHistorySelector()}
+        {/* Main chat area */}
         <section className="chat-area" data-testid="chat-history">
           {messages.length === 0 && !loading ? (
             <div className="empty-chat-msg">Start the conversation!</div>
@@ -365,8 +561,7 @@ function App() {
           GeminiBot &mdash; Powered by Google Gemini • Test Engineer Assistant
         </span>
       </footer>
-
-      {/* Embedded CSS for component styling */}
+      {/* Embedded style for component-level overrides */}
       <style>{`
         .central-chat-container {
           max-width: 480px;
@@ -608,5 +803,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
