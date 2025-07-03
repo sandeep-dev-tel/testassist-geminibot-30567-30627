@@ -67,8 +67,8 @@ export default function App() {
   // Profile panel
   const [panelOpen, setPanelOpen] = useState(false);
 
-  // Loader: true if fetch in progress
-  const [historyLoaded, setHistoryLoaded] = useState(false);
+  // Track sign up/login modal toggle state for the login form
+  const [signup, setSignup] = useState(false);
 
   // Chat scroll
   const chatEndRef = useRef(null);
@@ -102,7 +102,6 @@ export default function App() {
 
   // PUBLIC_INTERFACE
   async function fetchChatHistory() {
-    setHistoryLoaded(false);
     try {
       const res = await fetch(`${API_BASE}/chat/history`, {
         headers: {
@@ -142,8 +141,6 @@ export default function App() {
       setHistory([]);
       setConversationId(null);
       setMessages([]);
-    } finally {
-      setHistoryLoaded(true);
     }
   }
 
@@ -365,7 +362,7 @@ export default function App() {
   function renderMessage(msg, idx) {
     const isUser = msg.role === "user";
     const isBot = msg.role === "bot";
-    const isSystem = msg.role === "system";
+    // Removed unused variable isSystem
     return (
       <div
         className={
@@ -430,8 +427,7 @@ export default function App() {
 
   // PUBLIC_INTERFACE
   function renderLoginForm() {
-    // Dual: login/signup toggle if desired
-    const [signup, setSignup] = useState(false);
+    // Use lifted-up signup state and setSignup function
     return (
       <div className="auth-modal">
         <form
