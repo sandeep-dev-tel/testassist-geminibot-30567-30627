@@ -209,63 +209,10 @@ export default function App() {
 
   // PUBLIC_INTERFACE
   function renderChatHeader() {
+    // More minimal/professional: just the title, no right-aligned avatar/buttons
     return (
       <header className="chat-header">
         <span className="header-title">AI Chat Assistant</span>
-        <div className="header-actions">
-          {/* First avatar: blue circle N */}
-          <button
-            className="header-action-btn"
-            style={{
-              background: "var(--primary-accent)",
-              color: "#fff",
-              fontWeight: "700",
-              width: "36px",
-              height: "36px",
-              fontFamily: "inherit",
-            }}
-            aria-label="User N"
-            tabIndex={-1}
-          >
-            N
-          </button>
-          {/* Disabled avatar: gray circle X */}
-          <button
-            className="logout-btn"
-            style={{
-              background: "var(--disabled)",
-              color: "#B0B9C6",
-              fontWeight: "600",
-              width: "32px",
-              height: "32px",
-              marginLeft: "8px",
-            }}
-            aria-label="Avatar disabled"
-            tabIndex={-1}
-          >
-            X
-          </button>
-          {/* Theme Switch */}
-          <button
-            className="theme-toggle"
-            onClick={() => setTheme((p) => (p === "light" ? "dark" : "light"))}
-            aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
-            style={{
-              marginLeft: "8px",
-              background: "#181F2A",
-              color: "#fff",
-              border: "none",
-              fontSize: "17px",
-              width: "32px",
-              height: "32px",
-              borderRadius: "50%",
-              boxShadow: "0 1px 5px rgba(60,60,100,0.10)"
-            }}
-            tabIndex={0}
-          >
-            {theme === "light" ? "🌙" : <span style={{ position: "relative", top: "-1px" }}>☀️</span>}
-          </button>
-        </div>
       </header>
     );
   }

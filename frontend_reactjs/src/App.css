@@ -13,11 +13,17 @@
   --text-default: #F7F9FB;
 }
 
+/* Import Inter font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
 body, html {
   height: 100vh;
   background: var(--bg-canvas);
   color: var(--header-text);
-  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-feature-settings: "liga" 1, "calt" 0;
+  font-size: 16px;
+  letter-spacing: 0;
 }
 
 .App {
@@ -26,7 +32,8 @@ body, html {
   flex-direction: column;
   background: var(--bg-canvas);
   color: var(--header-text);
-  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
 }
 
 .chat-header {
@@ -51,53 +58,13 @@ body, html {
   text-align: left;
 }
 
+/* .header-actions and avatar/button styling removed for cleaner look; classes retained for auth/user panel if necessary */
 .header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: none;
 }
 
-.header-action-btn, .profile-btn, .logout-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: var(--primary-accent);
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 2px 6px 0 rgba(37,99,235,0.13);
-  transition: background 0.16s, box-shadow 0.12s;
-  overflow: hidden;
-}
-
-.profile-btn {
-  background: var(--primary-accent);
-  width: 36px;
-  height: 36px;
-}
-
-.logout-btn {
-  background: var(--disabled);
-  color: #ECECEC;
-  width: 32px;
-  height: 32px;
-  margin-left: 8px;
-  font-size: 16px;
-}
-
-.header-action-btn:focus, 
-.profile-btn:focus,
-.logout-btn:focus,
-.header-action-btn:hover, 
-.profile-btn:hover {
-  background: var(--button-bg-hover);
-  box-shadow: 0 4px 16px 0 rgba(37,99,235,0.18);
-}
+/* Minimal button set for legacy profile/logout only. */
+/* No .header-action-btn or .logout-btn in header now for minimal UI. */
 
 .central-chat-container {
   flex: 1;
@@ -129,29 +96,32 @@ body, html {
   display: flex;
   flex-direction: column;
   max-width: 80%;
-  padding: 10px 16px;
-  border-radius: 12px;
-  margin: 4px 0;
-  font-size: 15px;
-  line-height: 1.4;
+  padding: 12px 22px;
+  border-radius: 28px !important;
+  margin: 7px 0;
+  font-size: 15.5px;
+  line-height: 1.55;
   word-break: break-word;
   background: #212C3A;
   color: #F7F9FB;
-  box-shadow: 0 1px 6px 0 rgba(0,0,0,0.04);
+  box-shadow: 0 2px 20px 0 rgba(21,25,35,0.11);
+  font-family: inherit;
+  transition: background 0.13s;
 }
 
 .user-message {
   align-self: flex-end;
   background: var(--primary-accent);
   color: #fff;
-  border-bottom-right-radius: 4px;
+  border-radius: 32px 32px 32px 4px !important;
+  box-shadow: 0 3px 12px 0 rgba(37,99,235,0.09);
 }
-
 .bot-message {
   align-self: flex-start;
-  background: #252D3A;
+  background: #202736;
   color: var(--header-text);
-  border-bottom-left-radius: 4px;
+  border-radius: 32px 32px 4px 32px !important;
+  box-shadow: 0 3px 15px 0 rgba(44,48,72,0.09);
 }
 
 .system-message {
@@ -206,52 +176,63 @@ body, html {
 .chat-input-row {
   display: flex;
   align-items: center;
-  padding: 12px 24px 16px 24px;
+  padding: 12px 24px 28px 24px; /* More space below for separation from footer */
+  margin-bottom: 12px;  /* Visible space above footer (between input and footer) */
+  margin-top: 10px;     /* Extra space above input bar for clarity */
   background: var(--bg-canvas);
-  border-top: 1px solid var(--divider);
-  gap: 8px;
+  border-top: none;
+  gap: 12px;
   position: relative;
 }
 
+
+/* Modern, minimalist input - fully pill-shaped */
 .chat-input {
   flex: 1;
   background: var(--input-bg);
   color: var(--header-text);
   border: none;
-  border-radius: 12px;
-  height: 36px;
-  padding: 0 12px;
-  font-size: 15px;
+  border-radius: 999px !important;
+  height: 46px;
+  padding: 0 19px;
+  font-size: 16px;
   font-weight: 400;
   outline: none;
-  transition: background 0.15s;
+  font-family: inherit;
+  transition: background 0.15s, box-shadow 0.18s;
+  box-shadow: 0 2px 16px 0 rgba(29,32,48,0.06);
 }
 
 .chat-input::placeholder {
   color: var(--input-placeholder);
+  opacity: 0.91;
+  font-size: 16px;
+  font-weight: 400;
+  font-family: inherit;
 }
 
+/* Refined send button, now circular/pill, softer shadow, minimalist */
 .send-btn {
-  width: 36px;
-  height: 36px;
+  width: 46px;
+  height: 46px;
   background: var(--primary-accent);
   color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 19px;
   margin-left: 8px;
   cursor: pointer;
-  transition: background 0.13s, box-shadow 0.13s;
-  box-shadow: 0 1px 8px 0 rgba(37,99,235,0.12);
+  transition: background 0.16s, box-shadow 0.13s;
+  box-shadow: 0 3px 16px 0 rgba(37,99,235,0.13);
 }
 
 .send-btn:focus,
 .send-btn:hover {
   background: var(--button-bg-hover);
-  box-shadow: 0 2px 15px 0 rgba(37,99,235,0.18);
+  box-shadow: 0 5px 28px 0 rgba(37,99,235,0.19);
 }
 
 .send-btn:disabled,
@@ -262,8 +243,8 @@ body, html {
 
 /* Paper plane icon for send button (replace text with SVG inline as needed) */
 .send-btn svg {
-  width: 19px;
-  height: 19px;
+  width: 22px;
+  height: 22px;
   vertical-align: middle;
   display: block;
   fill: #fff;
