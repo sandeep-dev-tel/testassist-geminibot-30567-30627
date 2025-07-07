@@ -168,7 +168,9 @@ export default function App() {
     setMessages((msgs) => [...msgs, userMsg]);
 
     try {
-      let reqBody = { content: text };
+      // Build payload in backend-required format:
+      // { message: { content: ... }, conversation_id: ... }
+      let reqBody = { message: { content: text } };
       if (conversationId) reqBody.conversation_id = conversationId;
 
       const res = await axios.post(`${API_BASE}/chat/`, reqBody, {
