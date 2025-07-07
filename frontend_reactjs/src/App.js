@@ -167,9 +167,16 @@ export default function App() {
     setMessages((msgs) => [...msgs, userMsg]);
 
     try {
-      let reqBody = {
-        content: text,
-      };
+      // The backend expects {content: string} as the main payload.
+      // Optionally, conversation_id as a separate key in the root JSON, not nested.
+      // The backend FastAPI definition is:
+      //   message: MessageCreate (content: str)
+      //   conversation_id: Optional[int] = Body(None, ...)
+      // So, the expected payload is:
+      // { "content": "...", "conversation_id": ... } where conversation_id is optional.
+
+      let reqBody = { content: text };
+      // Only include conversation_id as top-level key if present
       if (conversationId) reqBody.conversation_id = conversationId;
 
       const res = await fetch(`${API_BASE}/chat/`, {
