@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
 import "./App.css";
 import axios from "axios";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 
 /*
   TestAssist GeminiBot Chat App (Frontend)
@@ -416,6 +419,8 @@ export default function App() {
   function renderMessage(msg, idx) {
     const isUser = msg.role === "user";
     const isBot = msg.role === "bot";
+    const isSystem = msg.role === "system";
+    // For bot/system, render using markdown renderer, else plain text
     return (
       <div
         className={
@@ -430,8 +435,21 @@ export default function App() {
           </span>
           <span className="msg-time">{formatTime(msg.timestamp)}</span>
         </div>
-        <div className="msg-content">
-          {msg.content}
+        <div className="msg-content markdown-content">
+          {(isBot || isSystem) ? (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeHighlight]}
+              components={{
+                // render <a> tags with target _blank
+                a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+              }}
+            >
+              {msg.content}
+            </ReactMarkdown>
+          ) : (
+            msg.content
+          )}
           {msg.sources && msg.sources.length > 0 && (
             <div className="msg-sources">
               <b>Sources:</b> {msg.sources.join(", ")}
@@ -577,12 +595,12 @@ export default function App() {
 
   // ===== RENDER =====
   return (
-    <div className="App" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
+    <div className="App" style={{ background: "var(--bg-primary)", color: "var(--text-primary)", width: "100vw", minHeight: "100vh", padding: 0, margin: 0 }}>
       {renderChatHeader()}
       {AUTH_ENABLED && showLogin ? renderLoginForm() : null}
       {AUTH_ENABLED && panelOpen ? renderProfilePanel() : null}
 
-      <main className="central-chat-container">
+      <main className="central-chat-container" style={{ width: "100vw", maxWidth: "100vw", margin: 0, borderRadius: 0, padding: 0 }}>
         {renderHistorySelector()}
         <section className="chat-area" data-testid="chat-history">
           {messages.length === 0 && !loading ? (
@@ -596,7 +614,7 @@ export default function App() {
                 <span className="msg-user">GeminiBot</span>
                 <span className="msg-time">{formatTime(new Date().toISOString())}</span>
               </div>
-              <div className="msg-content">
+              <div className="msg-content markdown-content">
                 <span className="loader" aria-label="Loading"></span> GeminiBot is typing…
               </div>
             </div>
@@ -605,292 +623,11 @@ export default function App() {
         </section>
         {(!AUTH_ENABLED || authToken) && renderChatInput()}
       </main>
-      <footer className="chat-footer" style={{ background: COLORS.secondary, color: "#fff" }}>
+      <footer className="chat-footer" style={{ background: COLORS.secondary, color: "#fff", width: "100vw", borderRadius: 0 }}>
         <span>
           GeminiBot &mdash; Powered by Google Gemini • Test Engineer Assistant
         </span>
       </footer>
-      {/* Modern, wide, clean and minimal container style injected inline */}
-      <style>{`
-        .central-chat-container {
-          width: 100%;
-          max-width: 700px;
-          margin: 2.2em auto;
-          background: var(--bg-secondary);
-          border-radius: 20px;
-          min-height: 65vh;
-          box-shadow: 0 4px 40px 0 rgba(33,58,110,0.09);
-          display: flex;
-          flex-direction: column;
-          transition: background 0.3s;
-        }
-        .chat-header {
-          width: 100%;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          border-radius: 20px 20px 0 0;
-          padding: 1.4em 2em 0.7em 2em;
-          box-sizing: border-box;
-          min-height: 62px;
-          background: ${COLORS.primary};
-        }
-        .chat-title {
-          letter-spacing: .02em;
-          font-size: 1.29rem;
-          font-weight: 700;
-        }
-        .header-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.25em;
-        }
-        .profile-btn, .theme-toggle, .logout-btn {
-          border: none;
-          background: ${COLORS.accent};
-          color: #fff;
-          font-size: 1.12rem;
-          padding: 0.36em 0.99em;
-          border-radius: 6px;
-          cursor: pointer;
-          transition: background 0.12s;
-        }
-        .profile-btn, .theme-toggle {
-          margin-left: 0.4em;
-        }
-        .chat-area {
-          flex: 1;
-          overflow-y: auto;
-          padding: 1.7em 1.4em 1.2em 1.4em;
-          display: flex;
-          flex-direction: column;
-          gap: 1.2em;
-        }
-        .chat-message {
-          border-radius: 12px;
-          max-width: 92%;
-          margin: 0.09em 0;
-          box-shadow: 0 1px 6px rgba(120,120,120,0.04);
-          padding: 1.02em 1.28em;
-          line-height: 1.65;
-          font-size: 1.07rem;
-          word-break: break-word;
-          background: #fff;
-          border: none;
-        }
-        .user-message {
-          align-self: flex-end;
-          background: ${COLORS.primary};
-          color: #fff;
-        }
-        .bot-message {
-          align-self: flex-start;
-          background: ${COLORS.accent};
-          color: #fff;
-        }
-        .system-message {
-          align-self: center;
-          background: #f8fafb;
-          color: #777;
-          font-style: italic;
-          opacity: .97;
-          box-shadow: none;
-          padding: 0.78em 1.1em;
-        }
-        .msg-metadata {
-          font-size: 0.83em;
-          opacity: 0.68;
-          display: flex;
-          gap: 0.6em;
-          margin-bottom: 0.2em;
-          font-weight: 500;
-        }
-        .msg-user { font-weight: 700; }
-        .msg-time { font-style: italic; }
-        .msg-content {
-          margin-top: 0.15em;
-        }
-        .msg-sources {
-          margin-top: 0.48em;
-          font-size: 0.95em;
-          color: #222;
-          background: #e7fdf0;
-          padding: 0.3em 0.5em;
-          border-radius: 5px;
-        }
-        .chat-input-row {
-          display: flex;
-          align-items: center;
-          gap: 0.7em;
-          border-radius: 0 0 20px 20px;
-          padding: 1.2em 2em 1.5em 2em;
-          background: var(--bg-secondary);
-          border-top: 1px solid var(--border-color);
-        }
-        .chat-input {
-          flex: 1;
-          border: 1.5px solid var(--border-color);
-          border-radius: 7px;
-          font-size: 1.11rem;
-          padding: 0.78em 1.2em;
-          background: var(--bg-primary);
-          transition: border 0.2s;
-        }
-        .chat-input:focus {
-          border-color: ${COLORS.primary};
-          outline: none;
-        }
-        .send-btn {
-          min-width: 80px;
-          min-height: 44px;
-          font-size: 1.04rem;
-          font-weight: 600;
-          border-radius: 6px;
-          outline: none;
-          border: none;
-          cursor: pointer;
-        }
-        .send-btn:disabled, .chat-input:disabled {
-          opacity: 0.5; cursor: not-allowed;
-        }
-        .profile-panel {
-          position: fixed;
-          right: -260px;
-          top: 80px;
-          background: #fff;
-          color: ${COLORS.secondary};
-          border-radius: 14px 0 0 14px;
-          box-shadow: 0 2px 16px rgba(60,80,120,0.14);
-          width: 240px;
-          height: 180px;
-          padding: 1.1em;
-          z-index: 200;
-          transition: right 0.33s;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 1.05em;
-        }
-        .profile-panel.open {
-          right: 0;
-        }
-        .profile-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 1em;
-          width: 100%;
-        }
-        .close-profile {
-          background: none;
-          color: ${COLORS.secondary};
-          font-size: 1.2em;
-          border: none;
-          cursor: pointer;
-        }
-        .chat-footer {
-          margin-top: 1em;
-          font-size: 1.01em;
-          text-align: center;
-          width: 100%;
-          padding: 1.16em 0;
-          border-radius: 0 0 18px 18px;
-          background: ${COLORS.secondary};
-          letter-spacing: 0.1px;
-        }
-        .empty-chat-msg {
-          opacity: 0.48;
-          font-style: italic;
-          text-align: center;
-          margin: 4em 0;
-        }
-        .auth-modal {
-          position: fixed;
-          z-index: 400;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(250,250,250,0.93);
-        }
-        .login-form {
-          background: #fff;
-          border-radius: 14px;
-          box-shadow: 0 2px 36px rgba(60,80,120,0.13);
-          padding: 2.3em 2.7em;
-          display: flex;
-          flex-direction: column;
-          gap: 1.3em;
-          min-width: 270px;
-          min-height: 220px;
-        }
-        .login-form h3 {
-          margin-bottom: 0.5em;
-          color: ${COLORS.primary};
-        }
-        .login-form input[type="text"],
-        .login-form input[type="password"] {
-          padding: 0.45em 0.97em;
-          border-radius: 7px;
-          border: 1px solid #ececec;
-          font-size: 1em;
-          outline: none;
-        }
-        .auth-error {
-          color: #e3472f;
-          font-weight: bold;
-          margin-top: 0.4em;
-          text-align: center;
-        }
-        .loader {
-          display: inline-block;
-          width: 1.2em;
-          height: 1.2em;
-          border: 2.6px solid #bbb;
-          border-top-color: ${COLORS.primary};
-          border-radius: 50%;
-          animation: loader-spin 0.8s linear infinite;
-          margin-right: 0.7em;
-          vertical-align: middle;
-        }
-        @keyframes loader-spin {
-          0% { transform: rotate(0deg);}
-          100% { transform: rotate(360deg);}
-        }
-        /* Responsive */
-        @media (max-width: 1050px) {
-          .central-chat-container {
-            max-width: 95vw;
-            margin: 1.1em auto 1.4em auto;
-            border-radius: 12px;
-          }
-          .chat-header, .chat-input-row {
-            padding-left: 1.2em; padding-right: 1.2em;
-          }
-        }
-        @media (max-width: 700px) {
-          .central-chat-container {
-            max-width: 100vw;
-            min-height: 78vh;
-            border-radius: 0;
-            margin: 0;
-          }
-          .chat-header, .chat-footer {
-            border-radius: 0;
-            padding-left: 1em;
-            padding-right: 1em;
-          }
-          .chat-area {
-            padding-left: 0.6em;
-            padding-right: 0.6em;
-          }
-        }
-        @media (max-width: 500px) {
-          .chat-area { padding: .78em .14em; gap: 0.55em; }
-          .central-chat-container { min-height: 84vh; }
-          .chat-input-row { padding: 1em 0.6em 0.8em 0.6em; }
-        }
-      `}</style>
     </div>
   );
 }
