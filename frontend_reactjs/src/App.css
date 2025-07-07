@@ -71,7 +71,7 @@ body, html {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 500px;
+  max-width: 900px;
   margin: 0 auto;
   box-sizing: border-box;
   background: var(--bg-canvas);
@@ -84,7 +84,7 @@ body, html {
 .chat-area {
   flex: 1;
   overflow-y: auto;
-  padding: 0 24px;
+  padding: 0 32px;
   background: var(--bg-canvas);
   display: flex;
   flex-direction: column;
@@ -97,7 +97,7 @@ body, html {
 .chat-message {
   display: flex;
   flex-direction: column;
-  max-width: 85%;
+  max-width: 70%;
   padding: 12px 22px;
   border-radius: 28px !important;
   margin: 7px 0 0 0;
@@ -114,6 +114,7 @@ body, html {
 .user-message {
   align-self: flex-end;
   margin-right: 0;
+  margin-left: auto;
   background: var(--primary-accent);
   color: #fff;
   border-radius: 32px 32px 32px 4px !important;
@@ -122,6 +123,7 @@ body, html {
 .bot-message {
   align-self: flex-start;
   margin-left: 0;
+  margin-right: auto;
   background: #202736;
   color: var(--header-text);
   border-radius: 32px 32px 4px 32px !important;
@@ -198,7 +200,7 @@ body, html {
 .chat-input-row {
   display: flex;
   align-items: center;
-  padding: 12px 24px 28px 24px; /* More space below for separation from footer */
+  padding: 12px 32px 28px 32px; /* More space below for separation from footer */
   margin-bottom: 12px;  /* Visible space above footer (between input and footer) */
   margin-top: 10px;     /* Extra space above input bar for clarity */
   background: var(--bg-canvas);
@@ -389,21 +391,34 @@ footer.chat-footer {
 }
 
 /* ==== Responsive: Mobile & Tablet ==== */
+@media (max-width: 900px) {
+  .central-chat-container {
+    max-width: 100vw;
+    margin: 0 16px;
+  }
+  .chat-area,
+  .chat-input-row {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
 @media (max-width: 700px) {
   .central-chat-container {
     width: 100vw;
     max-width: 100vw;
     min-height: 94vh;
     border-radius: 0;
+    margin: 0;
   }
   .chat-area,
   .chat-input-row {
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
   .chat-header {
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: 16px;
+    padding-right: 16px;
     font-size: 16px;
   }
 }
