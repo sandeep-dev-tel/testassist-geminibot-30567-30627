@@ -10,7 +10,11 @@ import "./App.css";
 
 /** ==== CONFIG SECTION ==== **/
 
-// Backend API endpoint (default localhost:3001; can override with ?backend=... param)
+/*
+  Changed API_BASE to use new endpoint by default:
+  https://vscode-internal-48644-beta.beta01.cloud.kavia.ai:3001
+  - ?backend=... override and REACT_APP_API_BACKEND environment still supported for flexibility.
+*/
 const API_BASE =
   (() => {
     // Allow ?backend=... override for dev/test
@@ -18,7 +22,7 @@ const API_BASE =
       const params = new URLSearchParams(window.location.search);
       if (params.get("backend")) return params.get("backend");
     }
-    return process.env.REACT_APP_API_BACKEND || "http://localhost:3001";
+    return process.env.REACT_APP_API_BACKEND || "https://vscode-internal-48644-beta.beta01.cloud.kavia.ai:3001";
   })();
 
 // Whether authentication endpoints are enabled (auto-detect or hardcode as needed)
