@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import "./App.css";
+import axios from "axios";
 
 /*
   TestAssist GeminiBot Chat App (Frontend)
@@ -10,19 +11,24 @@ import "./App.css";
 
 /** ==== CONFIG SECTION ==== **/
 
-// Backend API endpoint (default localhost:3001; can override with ?backend=... param)
+/*
+  Backend API endpoint: default to localhost:3001, but use REACT_APP_API_BACKEND, or ?backend= param if specified.
+  Allows environment-based switching for local/dev/prod.
+  Example: REACT_APP_API_BACKEND=https://backend.myhost.com npm start
+*/
 const API_BASE =
   (() => {
-    // Allow ?backend=... override for dev/test
     if (typeof window !== "undefined") {
+      // Query param override for developer (for demo)
       const params = new URLSearchParams(window.location.search);
       if (params.get("backend")) return params.get("backend");
     }
+    // Allow .env to specify, fallback to localhost
     return process.env.REACT_APP_API_BACKEND || "http://localhost:3001";
   })();
 
-// Whether authentication endpoints are enabled (auto-detect or hardcode as needed)
-const AUTH_ENABLED = false; // Set true if backend /auth/signup/token/profile routes require JWT
+// Whether authentication endpoints are enabled (backend might run in guest mode)
+const AUTH_ENABLED = process.env.REACT_APP_AUTH_ENABLED === "true" || false;
 
 // Color palette for themed components
 const COLORS = {
@@ -67,6 +73,11 @@ export default function App() {
   // Profile panel
   const [panelOpen, setPanelOpen] = useState(false);
 
+  // Chat answer file/loader/error (for answer context upload)
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState("");
+
   // Track sign up/login modal toggle state for the login form
   const [signup, setSignup] = useState(false);
 
@@ -103,21 +114,14 @@ export default function App() {
   // PUBLIC_INTERFACE
   async function fetchChatHistory() {
     try {
-      const res = await fetch(`${API_BASE}/chat/history`, {
+      const res = await axios.get(`${API_BASE}/chat/history`, {
         headers: {
           ...(AUTH_ENABLED && authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
       });
-      if (!res.ok) throw new Error("Error loading chat history");
-      const data = await res.json();
-      setHistory(
-        Array.isArray(data)
-          ? data
-          : []
-      );
-      // Set current conversation to most recent or null
+      const data = res.data;
+      setHistory(Array.isArray(data) ? data : []);
       if (Array.isArray(data) && data.length > 0) {
-        // Set messages to latest conversation
         setConversationId(data[0].id);
         setMessages(
           (data[0].messages || []).map((m) => ({
@@ -127,8 +131,7 @@ export default function App() {
             timestamp: m.created_at,
             role: m.sender === "user" ? "user" : (m.sender === "bot" ? "bot" : "system"),
             sources:
-              m.gemini_response &&
-              m.gemini_response.sources
+              m.gemini_response && m.gemini_response.sources
                 ? m.gemini_response.sources
                 : [],
           }))
@@ -163,34 +166,21 @@ export default function App() {
     setMessages((msgs) => [...msgs, userMsg]);
 
     try {
-      let reqBody = {
-        content: text,
-      };
+      let reqBody = { content: text };
       if (conversationId) reqBody.conversation_id = conversationId;
 
-      const res = await fetch(`${API_BASE}/chat/`, {
-        method: "POST",
+      const res = await axios.post(`${API_BASE}/chat/`, reqBody, {
         headers: {
           "Content-Type": "application/json",
           ...(AUTH_ENABLED && authToken
             ? { Authorization: `Bearer ${authToken}` }
             : {}),
         },
-        body: JSON.stringify(reqBody),
       });
-      if (!res.ok) {
-        let detail = "Failed to get response. Try again.";
-        try {
-          const err = await res.json();
-          if (err && err.detail) detail = err.detail;
-        } catch { }
-        throw new Error(detail);
-      }
-      // Response: MessageOut (see backend)
-      const botMsg = await res.json();
-      // If conversationId was just created, update it now from response
-      if (!conversationId && botMsg && botMsg.id && res.headers.get("content-type")?.includes("application/json")) {
-        fetchChatHistory(); // Reload to pull in new conversation and full details
+      const botMsg = res.data;
+      // If conversationId just created, reload all history/messages (for latest conversation id etc)
+      if (!conversationId && botMsg && botMsg.id) {
+        fetchChatHistory();
       }
       setMessages((msgs) =>
         [
@@ -213,6 +203,7 @@ export default function App() {
           id: `sys-${Date.now()}`,
           user: "System",
           content:
+            (err?.response?.data && err.response.data.detail) ||
             err.message ||
             "Sorry, an error occurred. Please try again later.",
           role: "system",
@@ -236,24 +227,25 @@ export default function App() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/auth/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&grant_type=password`,
+      const payload = new URLSearchParams();
+      payload.append("username", username);
+      payload.append("password", password);
+      payload.append("grant_type", "password");
+
+      const res = await axios.post(`${API_BASE}/auth/token`, payload, {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setAuthToken(data.access_token);
-        setAuthUser(username);
-        localStorage.setItem("authToken", data.access_token);
-        localStorage.setItem("authUser", username);
-        setShowLogin(false);
-        fetchChatHistory();
-      } else {
-        setAuthError("Login failed. Check credentials.");
-      }
+      const data = res.data;
+      setAuthToken(data.access_token);
+      setAuthUser(username);
+      localStorage.setItem("authToken", data.access_token);
+      localStorage.setItem("authUser", username);
+      setShowLogin(false);
+      fetchChatHistory();
     } catch (err) {
-      setAuthError("Server error.");
+      setAuthError("Login failed. Check credentials.");
     }
   }
 
@@ -269,25 +261,23 @@ export default function App() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      if (res.ok) {
-        // Signup auto-login
-        const data = await res.json();
-        setAuthToken(data.access_token);
-        setAuthUser(username);
-        localStorage.setItem("authToken", data.access_token);
-        localStorage.setItem("authUser", username);
-        setShowLogin(false);
-        fetchChatHistory();
-      } else {
-        setAuthError("Signup failed. Username may be taken.");
-      }
+      const res = await axios.post(
+        `${API_BASE}/auth/signup`,
+        { username, password },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      const data = res.data;
+      setAuthToken(data.access_token);
+      setAuthUser(username);
+      localStorage.setItem("authToken", data.access_token);
+      localStorage.setItem("authUser", username);
+      setShowLogin(false);
+      fetchChatHistory();
     } catch (err) {
-      setAuthError("Server error.");
+      setAuthError(
+        (err?.response?.data && err.response.data.detail) ||
+        "Signup failed. Username may be taken."
+      );
     }
   }
 
@@ -302,6 +292,43 @@ export default function App() {
     setHistory([]);
     setConversationId(null);
   }
+
+  // PUBLIC_INTERFACE
+  async function handleFileUpload(evt) {
+    // Upload answer .txt file for Gemini context hot-reload (admin/care)
+    const file = evt.target.files[0];
+    setUploadError("");
+    setUploadSuccess("");
+    if (!file) return;
+    if (!file.name.endsWith(".txt")) {
+      setUploadError("Only .txt files are accepted.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await axios.post(`${API_BASE}/files/answers`, formData, {
+        headers: {
+          ...(AUTH_ENABLED && authToken
+            ? { Authorization: `Bearer ${authToken}` }
+            : {}),
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      setUploadSuccess("Answer file uploaded and Gemini context reloaded.");
+      // Optional: reload chat history if context changes
+      fetchChatHistory();
+    } catch (err) {
+      setUploadError(
+        (err?.response?.data && err.response.data.detail) ||
+        "Upload failed."
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
 
   // PUBLIC_INTERFACE
   function renderProfilePanel() {
@@ -332,6 +359,42 @@ export default function App() {
       <div className="chat-header" style={{ background: COLORS.primary, color: "#fff" }}>
         <div style={{ fontWeight: "bold", fontSize: "1.2rem" }}>TestAssist GeminiBot</div>
         <div className="header-actions">
+          {/* Optional answer file upload for admins */}
+          <label style={{ marginRight: "6px", fontSize: "1.02em", cursor: "pointer" }}>
+            <input
+              type="file"
+              style={{ display: "none" }}
+              accept=".txt"
+              onChange={handleFileUpload}
+              disabled={uploading}
+              aria-label="Upload answer .txt file"
+            />
+            <span
+              role="img"
+              aria-label="Upload"
+              style={{
+                opacity: uploading ? 0.6 : 1,
+                marginRight: "0.17em",
+                fontSize: "1.06em",
+              }}
+              title="Upload new answer .txt file for Gemini context"
+            >
+              📄
+            </span>
+          </label>
+          {uploading &&
+            <span style={{
+              fontSize: "0.95em", color: "#fff", marginRight: 7
+            }}>
+              <span className="loader" aria-label="Uploading"></span>Uploading...
+            </span>
+          }
+          {uploadError &&
+            <span style={{ color: "#e3472f", fontSize: 12, marginLeft: 4 }}>{uploadError}</span>
+          }
+          {uploadSuccess &&
+            <span style={{ color: "#7ea157", fontSize: 12, marginLeft: 4 }}>{uploadSuccess}</span>
+          }
           {AUTH_ENABLED && (
             <button
               className="profile-btn"
