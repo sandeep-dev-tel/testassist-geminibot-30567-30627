@@ -4,60 +4,42 @@ import axios from "axios";
 
 /*
   TestAssist GeminiBot Chat App (Frontend)
-  - Provides chat interface for test engineers to interact with Gemini-powered backend
-  - Supports display of current chat, history, and authentication if enabled
-  - Interfaces with FastAPI backend via REST endpoints as documented
+  - Cleaner, wider, modern chat interface
+  - Responsive and accessible by design
 */
 
 /** ==== CONFIG SECTION ==== **/
 
-/*
-  Backend API endpoint: default to localhost:3001, but use REACT_APP_API_BACKEND, or ?backend= param if specified.
-  Allows environment-based switching for local/dev/prod.
-  Example: REACT_APP_API_BACKEND=https://backend.myhost.com npm start
-*/
 const API_BASE =
   (() => {
     if (typeof window !== "undefined") {
-      // Query param override for developer (for demo)
       const params = new URLSearchParams(window.location.search);
       if (params.get("backend")) return params.get("backend");
     }
-    // Use REACT_APP_API_BASE_URL for all environments if present
     if (process.env.REACT_APP_API_BASE_URL) return process.env.REACT_APP_API_BASE_URL;
-    // Fallback to old var or localhost
     return process.env.REACT_APP_API_BACKEND || "http://localhost:3001";
   })();
-
-// Whether authentication endpoints are enabled (backend might run in guest mode)
 const AUTH_ENABLED = process.env.REACT_APP_AUTH_ENABLED === "true" || false;
-
-// Color palette for themed components
 const COLORS = {
   accent: "#43A047",
   primary: "#1976D2",
-  secondary: "#424242",
+  secondary: "#424242"
 };
-
-// Intl date util: format timestamp for bubble display
 function formatTime(ts) {
   if (!ts) return "";
   const d = new Date(ts);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-/** ==== APP MAIN ==== **/
 // PUBLIC_INTERFACE
 export default function App() {
-  // Theme: light/dark (default to "light")
-  const [theme, setTheme] = useState(() => {
-    return window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches
+  // Theme management
+  const [theme, setTheme] = useState(() =>
+    window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
-      : "light";
-  });
-
-  // User authentication state
+      : "light"
+  );
+  // Auth state
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken") || "");
   const [authUser, setAuthUser] = useState(localStorage.getItem("authUser") || "");
   const [authError, setAuthError] = useState("");
@@ -75,43 +57,33 @@ export default function App() {
   // Profile panel
   const [panelOpen, setPanelOpen] = useState(false);
 
-  // Chat answer file/loader/error (for answer context upload)
+  // File upload
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
 
-  // Track sign up/login modal toggle state for the login form
+  // Auth mode toggle
   const [signup, setSignup] = useState(false);
 
   // Chat scroll
   const chatEndRef = useRef(null);
 
-  // ==== Effects and Initialization ====
-
-  // Apply theme on document
+  // Effects
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
-
-  // Fetch conversation history on mount/auth change
   useEffect(() => {
-    // Only fetch if authToken exists or if not required
-    if (!AUTH_ENABLED || authToken) {
-      fetchChatHistory();
-    } else {
+    if (!AUTH_ENABLED || authToken) fetchChatHistory();
+    else {
       setShowLogin(true);
       setMessages([]);
       setHistory([]);
     }
     // eslint-disable-next-line
   }, [authToken]);
-
-  // Auto-scroll to end on new messages
   useEffect(() => {
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // ==== API Calls ====
 
   // PUBLIC_INTERFACE
   async function fetchChatHistory() {
@@ -142,7 +114,7 @@ export default function App() {
         setConversationId(null);
         setMessages([]);
       }
-    } catch (err) {
+    } catch {
       setHistory([]);
       setConversationId(null);
       setMessages([]);
@@ -156,8 +128,6 @@ export default function App() {
     if (!text) return;
     setInput("");
     setLoading(true);
-
-    // Optimistically add user message to UI
     const userMsg = {
       id: Date.now(),
       user: authUser || "You",
@@ -166,13 +136,9 @@ export default function App() {
       role: "user",
     };
     setMessages((msgs) => [...msgs, userMsg]);
-
     try {
-      // Build payload in backend-required format:
-      // { message: { content: ... }, conversation_id: ... }
       let reqBody = { message: { content: text } };
       if (conversationId) reqBody.conversation_id = conversationId;
-
       const res = await axios.post(`${API_BASE}/chat/`, reqBody, {
         headers: {
           "Content-Type": "application/json",
@@ -182,7 +148,6 @@ export default function App() {
         },
       });
       const botMsg = res.data;
-      // If conversationId just created, reload all history/messages (for latest conversation id etc)
       if (!conversationId && botMsg && botMsg.id) {
         fetchChatHistory();
       }
@@ -199,30 +164,22 @@ export default function App() {
             timestamp: botMsg.created_at,
             role: "bot",
           },
-        ]);
+        ]
+      );
     } catch (err) {
-      // Improved error handling for possible FastAPI error objects
       let errorDetail = null;
       if (err?.response?.data) {
         const data = err.response.data;
         if (typeof data.detail === "object" && data.detail !== null) {
-          // FastAPI validation error: detail is an array of error dicts or an object
           if (Array.isArray(data.detail)) {
             errorDetail = data.detail
-              .map(
-                (item) => {
-                  if (item.msg) {
-                    // FastAPI style: {type, loc, msg, input,...}
-                    // Compose: "field: message"
-                    return `${item.loc ? item.loc.join(".") + ": " : ""}${item.msg}`;
-                  }
-                  // Other format or key
-                  return JSON.stringify(item);
-                }
+              .map((item) =>
+                item.msg
+                  ? `${item.loc ? item.loc.join(".") + ": " : ""}${item.msg}`
+                  : JSON.stringify(item)
               )
               .join(" | ");
           } else {
-            // Single object -- try to map or stringify
             if (data.detail.msg) {
               errorDetail = data.detail.msg;
             } else {
@@ -279,7 +236,7 @@ export default function App() {
       localStorage.setItem("authUser", username);
       setShowLogin(false);
       fetchChatHistory();
-    } catch (err) {
+    } catch {
       setAuthError("Login failed. Check credentials.");
     }
   }
@@ -330,7 +287,6 @@ export default function App() {
 
   // PUBLIC_INTERFACE
   async function handleFileUpload(evt) {
-    // Upload answer .txt file for Gemini context hot-reload (admin/care)
     const file = evt.target.files[0];
     setUploadError("");
     setUploadSuccess("");
@@ -343,7 +299,7 @@ export default function App() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await axios.post(`${API_BASE}/files/answers`, formData, {
+      await axios.post(`${API_BASE}/files/answers`, formData, {
         headers: {
           ...(AUTH_ENABLED && authToken
             ? { Authorization: `Bearer ${authToken}` }
@@ -352,7 +308,6 @@ export default function App() {
         },
       });
       setUploadSuccess("Answer file uploaded and Gemini context reloaded.");
-      // Optional: reload chat history if context changes
       fetchChatHistory();
     } catch (err) {
       setUploadError(
@@ -363,7 +318,6 @@ export default function App() {
       setUploading(false);
     }
   }
-
 
   // PUBLIC_INTERFACE
   function renderProfilePanel() {
@@ -392,10 +346,10 @@ export default function App() {
   function renderChatHeader() {
     return (
       <div className="chat-header" style={{ background: COLORS.primary, color: "#fff" }}>
-        <div style={{ fontWeight: "bold", fontSize: "1.2rem" }}>TestAssist GeminiBot</div>
+        <div className="chat-title" style={{ fontWeight: 700, fontSize: "1.27rem", letterSpacing: ".01em" }}>TestAssist GeminiBot</div>
         <div className="header-actions">
-          {/* Optional answer file upload for admins */}
-          <label style={{ marginRight: "6px", fontSize: "1.02em", cursor: "pointer" }}>
+          {/* Answer file upload */}
+          <label title="Upload answer file" style={{ marginRight: 4, fontSize: "1.04em", cursor: "pointer" }}>
             <input
               type="file"
               style={{ display: "none" }}
@@ -408,33 +362,35 @@ export default function App() {
               role="img"
               aria-label="Upload"
               style={{
-                opacity: uploading ? 0.6 : 1,
-                marginRight: "0.17em",
-                fontSize: "1.06em",
+                opacity: uploading ? 0.55 : 1,
+                fontSize: "1.1em",
               }}
               title="Upload new answer .txt file for Gemini context"
             >
               📄
             </span>
           </label>
-          {uploading &&
+          {uploading && (
             <span style={{
               fontSize: "0.95em", color: "#fff", marginRight: 7
             }}>
               <span className="loader" aria-label="Uploading"></span>Uploading...
             </span>
-          }
-          {uploadError &&
+          )}
+          {uploadError && (
             <span style={{ color: "#e3472f", fontSize: 12, marginLeft: 4 }}>{uploadError}</span>
-          }
-          {uploadSuccess &&
+          )}
+          {uploadSuccess && (
             <span style={{ color: "#7ea157", fontSize: 12, marginLeft: 4 }}>{uploadSuccess}</span>
-          }
+          )}
           {AUTH_ENABLED && (
             <button
               className="profile-btn"
               onClick={() => setPanelOpen((prev) => !prev)}
               title="User profile"
+              style={{
+                marginLeft: "0.44em"
+              }}
             >
               <span role="img" aria-label="profile">👤</span>
             </button>
@@ -460,7 +416,6 @@ export default function App() {
   function renderMessage(msg, idx) {
     const isUser = msg.role === "user";
     const isBot = msg.role === "bot";
-    // Removed unused variable isSystem
     return (
       <div
         className={
@@ -525,7 +480,6 @@ export default function App() {
 
   // PUBLIC_INTERFACE
   function renderLoginForm() {
-    // Use lifted-up signup state and setSignup function
     return (
       <div className="auth-modal">
         <form
@@ -571,27 +525,30 @@ export default function App() {
 
   // PUBLIC_INTERFACE
   function renderHistorySelector() {
-    // Show conversation history list (if multiple)
     if (!history.length) return null;
     return (
-      <div style={{ textAlign: "center", marginBottom: "0.8em" }}>
-        <span style={{ fontWeight: 600 }}>Past conversations:</span>
+      <div style={{
+        display: "flex", justifyContent: "center",
+        marginBottom: "1.5em", gap: "0.5em", flexWrap: "wrap"
+      }}>
         {history.map((conv, idx) => (
           <button
             key={conv.id}
             style={{
-              margin: "0 0.35em",
               background:
                 conv.id === conversationId
                   ? COLORS.accent
                   : COLORS.primary,
               color: "#fff",
               border: "none",
-              borderRadius: "5px",
-              padding: "0.37em 0.9em",
+              borderRadius: "6px",
+              padding: "0.35em 1em",
+              fontSize: "0.97em",
+              fontWeight: 500,
               cursor: "pointer",
-              fontSize: "0.99em"
+              transition: "background 0.15s"
             }}
+            aria-label={conv.title ? conv.title : `Chat #${history.length - idx}`}
             onClick={() => {
               setConversationId(conv.id);
               setMessages(
@@ -626,9 +583,7 @@ export default function App() {
       {AUTH_ENABLED && panelOpen ? renderProfilePanel() : null}
 
       <main className="central-chat-container">
-        {/* Conversation selector */}
         {renderHistorySelector()}
-        {/* Main chat area */}
         <section className="chat-area" data-testid="chat-history">
           {messages.length === 0 && !loading ? (
             <div className="empty-chat-msg">Start the conversation!</div>
@@ -655,15 +610,16 @@ export default function App() {
           GeminiBot &mdash; Powered by Google Gemini • Test Engineer Assistant
         </span>
       </footer>
-      {/* Embedded style for component-level overrides */}
+      {/* Modern, wide, clean and minimal container style injected inline */}
       <style>{`
         .central-chat-container {
-          max-width: 480px;
-          margin: 2em auto;
+          width: 100%;
+          max-width: 700px;
+          margin: 2.2em auto;
           background: var(--bg-secondary);
-          border-radius: 16px;
-          min-height: 60vh;
-          box-shadow: 0 4px 32px rgba(33, 58, 110, 0.10);
+          border-radius: 20px;
+          min-height: 65vh;
+          box-shadow: 0 4px 40px 0 rgba(33,58,110,0.09);
           display: flex;
           flex-direction: column;
           transition: background 0.3s;
@@ -673,46 +629,54 @@ export default function App() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          border-radius: 16px 16px 0 0;
-          padding: 1.2em 1.3em 0.5em 1.3em;
+          border-radius: 20px 20px 0 0;
+          padding: 1.4em 2em 0.7em 2em;
           box-sizing: border-box;
-          min-height: 58px;
+          min-height: 62px;
           background: ${COLORS.primary};
+        }
+        .chat-title {
+          letter-spacing: .02em;
+          font-size: 1.29rem;
+          font-weight: 700;
         }
         .header-actions {
           display: flex;
           align-items: center;
-          gap: 0.35em;
+          gap: 0.25em;
         }
         .profile-btn, .theme-toggle, .logout-btn {
           border: none;
-          outline: none;
           background: ${COLORS.accent};
           color: #fff;
-          font-size: 1.1rem;
-          padding: 0.45em 1.1em;
+          font-size: 1.12rem;
+          padding: 0.36em 0.99em;
           border-radius: 6px;
           cursor: pointer;
-          transition: background 0.15s;
+          transition: background 0.12s;
+        }
+        .profile-btn, .theme-toggle {
+          margin-left: 0.4em;
         }
         .chat-area {
           flex: 1;
           overflow-y: auto;
-          padding: 1.1em;
+          padding: 1.7em 1.4em 1.2em 1.4em;
           display: flex;
           flex-direction: column;
-          gap: 0.9em;
+          gap: 1.2em;
         }
         .chat-message {
-          border-radius: 10px;
+          border-radius: 12px;
           max-width: 92%;
-          margin: 0.1em 0;
-          box-shadow: 0 1px 6px rgba(120,120,120,0.08);
-          padding: 0.9em 1.2em;
-          line-height: 1.54;
-          font-size: 0.99rem;
+          margin: 0.09em 0;
+          box-shadow: 0 1px 6px rgba(120,120,120,0.04);
+          padding: 1.02em 1.28em;
+          line-height: 1.65;
+          font-size: 1.07rem;
           word-break: break-word;
           background: #fff;
+          border: none;
         }
         .user-message {
           align-self: flex-end;
@@ -726,25 +690,29 @@ export default function App() {
         }
         .system-message {
           align-self: center;
-          background: #f6f6f6;
-          color: #666;
+          background: #f8fafb;
+          color: #777;
           font-style: italic;
+          opacity: .97;
+          box-shadow: none;
+          padding: 0.78em 1.1em;
         }
         .msg-metadata {
-          font-size: 0.78em;
+          font-size: 0.83em;
           opacity: 0.68;
           display: flex;
           gap: 0.6em;
-          margin-bottom: 0.28em;
+          margin-bottom: 0.2em;
+          font-weight: 500;
         }
-        .msg-user { font-weight: bold; }
+        .msg-user { font-weight: 700; }
         .msg-time { font-style: italic; }
         .msg-content {
-          margin-top: 0.12em;
+          margin-top: 0.15em;
         }
         .msg-sources {
-          margin-top: 0.45em;
-          font-size: 0.88em;
+          margin-top: 0.48em;
+          font-size: 0.95em;
           color: #222;
           background: #e7fdf0;
           padding: 0.3em 0.5em;
@@ -753,18 +721,19 @@ export default function App() {
         .chat-input-row {
           display: flex;
           align-items: center;
-          gap: 0.65em;
-          border-radius: 0 0 16px 16px;
-          padding: 0.8em 1.2em 1.2em 1.2em;
+          gap: 0.7em;
+          border-radius: 0 0 20px 20px;
+          padding: 1.2em 2em 1.5em 2em;
           background: var(--bg-secondary);
           border-top: 1px solid var(--border-color);
         }
         .chat-input {
           flex: 1;
-          border: 1px solid var(--border-color);
-          border-radius: 6px;
-          font-size: 1.02rem;
-          padding: 0.7em 1em;
+          border: 1.5px solid var(--border-color);
+          border-radius: 7px;
+          font-size: 1.11rem;
+          padding: 0.78em 1.2em;
+          background: var(--bg-primary);
           transition: border 0.2s;
         }
         .chat-input:focus {
@@ -773,9 +742,9 @@ export default function App() {
         }
         .send-btn {
           min-width: 80px;
-          min-height: 40px;
-          font-size: 1rem;
-          font-weight: bold;
+          min-height: 44px;
+          font-size: 1.04rem;
+          font-weight: 600;
           border-radius: 6px;
           outline: none;
           border: none;
@@ -787,16 +756,20 @@ export default function App() {
         .profile-panel {
           position: fixed;
           right: -260px;
-          top: 70px;
+          top: 80px;
           background: #fff;
           color: ${COLORS.secondary};
-          border-radius: 12px 0 0 12px;
-          box-shadow: 0 2px 16px rgba(60,80,120,0.16);
+          border-radius: 14px 0 0 14px;
+          box-shadow: 0 2px 16px rgba(60,80,120,0.14);
           width: 240px;
           height: 180px;
-          padding: 1em;
-          z-index: 20;
-          transition: right 0.35s;
+          padding: 1.1em;
+          z-index: 200;
+          transition: right 0.33s;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1.05em;
         }
         .profile-panel.open {
           right: 0;
@@ -805,7 +778,8 @@ export default function App() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          font-size: 1rem;
+          font-size: 1em;
+          width: 100%;
         }
         .close-profile {
           background: none;
@@ -815,38 +789,39 @@ export default function App() {
           cursor: pointer;
         }
         .chat-footer {
-          margin-top: 0.65em;
-          font-size: 0.97em;
+          margin-top: 1em;
+          font-size: 1.01em;
           text-align: center;
           width: 100%;
-          padding: 1em 0;
-          border-radius: 0 0 12px 12px;
+          padding: 1.16em 0;
+          border-radius: 0 0 18px 18px;
           background: ${COLORS.secondary};
+          letter-spacing: 0.1px;
         }
         .empty-chat-msg {
-          opacity: 0.5;
+          opacity: 0.48;
           font-style: italic;
           text-align: center;
-          margin: 3em 0;
+          margin: 4em 0;
         }
         .auth-modal {
           position: fixed;
-          z-index: 100;
+          z-index: 400;
           inset: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(250,250,250,0.89);
+          background: rgba(250,250,250,0.93);
         }
         .login-form {
           background: #fff;
-          border-radius: 12px;
-          box-shadow: 0 2px 32px rgba(60,80,120,0.12);
-          padding: 2.2em 2.5em;
+          border-radius: 14px;
+          box-shadow: 0 2px 36px rgba(60,80,120,0.13);
+          padding: 2.3em 2.7em;
           display: flex;
           flex-direction: column;
-          gap: 1.2em;
-          min-width: 260px;
+          gap: 1.3em;
+          min-width: 270px;
           min-height: 220px;
         }
         .login-form h3 {
@@ -855,10 +830,11 @@ export default function App() {
         }
         .login-form input[type="text"],
         .login-form input[type="password"] {
-          padding: 0.45em 0.95em;
-          border-radius: 6px;
+          padding: 0.45em 0.97em;
+          border-radius: 7px;
           border: 1px solid #ececec;
           font-size: 1em;
+          outline: none;
         }
         .auth-error {
           color: #e3472f;
@@ -868,9 +844,9 @@ export default function App() {
         }
         .loader {
           display: inline-block;
-          width: 1.15em;
-          height: 1.15em;
-          border: 2.5px solid #bbb;
+          width: 1.2em;
+          height: 1.2em;
+          border: 2.6px solid #bbb;
           border-top-color: ${COLORS.primary};
           border-radius: 50%;
           animation: loader-spin 0.8s linear infinite;
@@ -882,16 +858,37 @@ export default function App() {
           100% { transform: rotate(360deg);}
         }
         /* Responsive */
-        @media (max-width: 600px) {
+        @media (max-width: 1050px) {
           .central-chat-container {
-            margin: 0;
-            min-height: 86vh;
+            max-width: 95vw;
+            margin: 1.1em auto 1.4em auto;
+            border-radius: 12px;
+          }
+          .chat-header, .chat-input-row {
+            padding-left: 1.2em; padding-right: 1.2em;
+          }
+        }
+        @media (max-width: 700px) {
+          .central-chat-container {
+            max-width: 100vw;
+            min-height: 78vh;
             border-radius: 0;
+            margin: 0;
           }
           .chat-header, .chat-footer {
             border-radius: 0;
+            padding-left: 1em;
+            padding-right: 1em;
           }
-          .profile-panel { top: 0; border-radius: 0; }
+          .chat-area {
+            padding-left: 0.6em;
+            padding-right: 0.6em;
+          }
+        }
+        @media (max-width: 500px) {
+          .chat-area { padding: .78em .14em; gap: 0.55em; }
+          .central-chat-container { min-height: 84vh; }
+          .chat-input-row { padding: 1em 0.6em 0.8em 0.6em; }
         }
       `}</style>
     </div>
