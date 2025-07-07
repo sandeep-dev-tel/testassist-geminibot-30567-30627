@@ -199,15 +199,46 @@ export default function App() {
           },
         ]);
     } catch (err) {
+      // Improved error handling for possible FastAPI error objects
+      let errorDetail = null;
+      if (err?.response?.data) {
+        const data = err.response.data;
+        if (typeof data.detail === "object" && data.detail !== null) {
+          // FastAPI validation error: detail is an array of error dicts or an object
+          if (Array.isArray(data.detail)) {
+            errorDetail = data.detail
+              .map(
+                (item) => {
+                  if (item.msg) {
+                    // FastAPI style: {type, loc, msg, input,...}
+                    // Compose: "field: message"
+                    return `${item.loc ? item.loc.join(".") + ": " : ""}${item.msg}`;
+                  }
+                  // Other format or key
+                  return JSON.stringify(item);
+                }
+              )
+              .join(" | ");
+          } else {
+            // Single object -- try to map or stringify
+            if (data.detail.msg) {
+              errorDetail = data.detail.msg;
+            } else {
+              errorDetail = JSON.stringify(data.detail);
+            }
+          }
+        } else if (typeof data.detail === "string") {
+          errorDetail = data.detail;
+        }
+      }
+      if (!errorDetail && err.message) errorDetail = err.message;
+      if (!errorDetail) errorDetail = "Sorry, an error occurred. Please try again later.";
       setMessages((msgs) => [
         ...msgs,
         {
           id: `sys-${Date.now()}`,
           user: "System",
-          content:
-            (err?.response?.data && err.response.data.detail) ||
-            err.message ||
-            "Sorry, an error occurred. Please try again later.",
+          content: errorDetail,
           role: "system",
           timestamp: new Date().toISOString(),
         },
