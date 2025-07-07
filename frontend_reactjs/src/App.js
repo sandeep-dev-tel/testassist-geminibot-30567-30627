@@ -5,6 +5,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 
+// Version compatibility notes:
+// - react-markdown@9.x uses pure ESM, plugins must also be ESM.
+// - remark-gfm@3.x and rehype-highlight@6.x are recommended.
+// Proper plugin props: 'remarkPlugins' and 'rehypePlugins'.
+
 /*
   TestAssist GeminiBot Chat App (Frontend)
   - Cleaner, wider, modern chat interface
