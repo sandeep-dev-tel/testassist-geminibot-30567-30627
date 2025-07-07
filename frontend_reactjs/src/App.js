@@ -237,7 +237,7 @@ export default function App() {
     const containerStyle = {
       display: "flex",
       flexDirection: "column",
-      alignItems: isUser ? "flex-end" : isBot ? "flex-start" : "center",
+      alignItems: isUser ? "flex-end" : "flex-start", // System messages now left-aligned like bot messages
       marginBottom: "2px"
     };
     return (
@@ -265,7 +265,7 @@ export default function App() {
             fontSize: "11px",
             marginTop: "4px",
             color: "var(--input-placeholder)",
-            alignSelf: isUser ? "flex-end" : isBot ? "flex-start" : "center",
+            alignSelf: isUser ? "flex-end" : "flex-start", // System messages now left-aligned like bot messages
             opacity: 0.95
           }}
         >
