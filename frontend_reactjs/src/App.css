@@ -92,13 +92,15 @@ body, html {
   gap: 0.7em;
 }
 
+/* Edge-aligned containers for messages (handled via inline style in JS) */
+
 .chat-message {
   display: flex;
   flex-direction: column;
-  max-width: 80%;
+  max-width: 85%;
   padding: 12px 22px;
   border-radius: 28px !important;
-  margin: 7px 0;
+  margin: 7px 0 0 0;
   font-size: 15.5px;
   line-height: 1.55;
   word-break: break-word;
@@ -111,6 +113,7 @@ body, html {
 
 .user-message {
   align-self: flex-end;
+  margin-right: 0;
   background: var(--primary-accent);
   color: #fff;
   border-radius: 32px 32px 32px 4px !important;
@@ -118,10 +121,29 @@ body, html {
 }
 .bot-message {
   align-self: flex-start;
+  margin-left: 0;
   background: #202736;
   color: var(--header-text);
   border-radius: 32px 32px 4px 32px !important;
   box-shadow: 0 3px 15px 0 rgba(44,48,72,0.09);
+}
+
+/* Timestamp below bubble, small and right/left edge aligned */
+.outside-bubble-time {
+  font-size: 11px !important;
+  color: var(--input-placeholder);
+  margin-top: 3px;
+  margin-bottom: 6px;
+  /* alignment is set inline for user/bot in renderMessage */
+}
+
+/* Remove old alignment effects from msg-metadata (now inside bubble, no time */
+.msg-metadata {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--input-placeholder);
+  margin-bottom: 2px;
 }
 
 .system-message {

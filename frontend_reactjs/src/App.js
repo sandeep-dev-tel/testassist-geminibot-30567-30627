@@ -230,28 +230,47 @@ export default function App() {
       }
       return String(content);
     }
+    // For edge-aligned bubbles and external timestamp:
+    const bubbleClass =
+      "chat-message " +
+      (isUser ? "user-message" : isBot ? "bot-message" : "system-message");
+    const containerStyle = {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: isUser ? "flex-end" : isBot ? "flex-start" : "center",
+      marginBottom: "2px"
+    };
     return (
-      <div
-        className={
-          "chat-message " +
-          (isUser ? "user-message" : isBot ? "bot-message" : "system-message")
-        }
-        key={msg.id || idx}
-      >
-        <div className="msg-metadata">
-          <span className="msg-user">
-            {isUser ? (authUser || "You") : isBot ? "GeminiBot" : "System"}
-          </span>
-          <span className="msg-time">{formatTime(msg.timestamp)}</span>
+      <div style={containerStyle} key={msg.id || idx}>
+        <div className={bubbleClass}>
+          {/* No timestamp here now */}
+          <div className="msg-metadata" style={{marginBottom: 0}}>
+            <span className="msg-user">
+              {isUser ? (authUser || "You") : isBot ? "GeminiBot" : "System"}
+            </span>
+          </div>
+          <div className="msg-content">
+            {renderContentSafe(msg.content)}
+            {msg.sources && msg.sources.length > 0 && (
+              <div className="msg-sources">
+                <b>Sources:</b> {msg.sources.join(", ")}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="msg-content">
-          {renderContentSafe(msg.content)}
-          {msg.sources && msg.sources.length > 0 && (
-            <div className="msg-sources">
-              <b>Sources:</b> {msg.sources.join(", ")}
-            </div>
-          )}
-        </div>
+        {/* Timestamp outside bubble, bottom right edge for both user and bot */}
+        <span
+          className="msg-time outside-bubble-time"
+          style={{
+            fontSize: "11px",
+            marginTop: "4px",
+            color: "var(--input-placeholder)",
+            alignSelf: isUser ? "flex-end" : isBot ? "flex-start" : "center",
+            opacity: 0.95
+          }}
+        >
+          {formatTime(msg.timestamp)}
+        </span>
       </div>
     );
   }
