@@ -10,7 +10,11 @@ import "./App.css";
 
 /** ==== CONFIG SECTION ==== **/
 
-// Backend API endpoint (default localhost:3001; can override with ?backend=... param)
+/*
+ * Backend API endpoint.
+ * Uses new base URL: https://vscode-internal-8510-beta.beta01.cloud.kavia.ai:3001
+ * Allows ?backend=... override for dev/test as before
+ */
 const API_BASE =
   (() => {
     // Allow ?backend=... override for dev/test
@@ -18,7 +22,7 @@ const API_BASE =
       const params = new URLSearchParams(window.location.search);
       if (params.get("backend")) return params.get("backend");
     }
-    return process.env.REACT_APP_API_BACKEND || "http://localhost:3001";
+    return process.env.REACT_APP_API_BACKEND || "https://vscode-internal-8510-beta.beta01.cloud.kavia.ai:3001";
   })();
 
 // Whether authentication endpoints are enabled (auto-detect or hardcode as needed)
