@@ -23,7 +23,9 @@ const API_BASE =
       const params = new URLSearchParams(window.location.search);
       if (params.get("backend")) return params.get("backend");
     }
-    // Allow .env to specify, fallback to localhost
+    // Use REACT_APP_API_BASE_URL for all environments if present
+    if (process.env.REACT_APP_API_BASE_URL) return process.env.REACT_APP_API_BASE_URL;
+    // Fallback to old var or localhost
     return process.env.REACT_APP_API_BACKEND || "http://localhost:3001";
   })();
 
