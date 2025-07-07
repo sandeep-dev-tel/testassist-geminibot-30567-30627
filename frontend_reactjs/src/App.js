@@ -373,7 +373,24 @@ export default function App() {
   function renderMessage(msg, idx) {
     const isUser = msg.role === "user";
     const isBot = msg.role === "bot";
-    // Removed unused variable isSystem
+
+    // Helper: Render only string data, stringify objects (to avoid [object Object])
+    function renderContentSafe(content) {
+      if (typeof content === "string") return content;
+      if (content === null || content === undefined) return "";
+      if (typeof content === "object") {
+        // Prefer .answer field if present (like gemini_response.answer, or similar API)
+        if (typeof content.answer === "string") return content.answer;
+        // else fallback to stringified JSON
+        try {
+          return JSON.stringify(content);
+        } catch {
+          return "[Unreadable content]";
+        }
+      }
+      return String(content);
+    }
+
     return (
       <div
         className={
@@ -389,7 +406,7 @@ export default function App() {
           <span className="msg-time">{formatTime(msg.timestamp)}</span>
         </div>
         <div className="msg-content">
-          {msg.content}
+          {renderContentSafe(msg.content)}
           {msg.sources && msg.sources.length > 0 && (
             <div className="msg-sources">
               <b>Sources:</b> {msg.sources.join(", ")}
